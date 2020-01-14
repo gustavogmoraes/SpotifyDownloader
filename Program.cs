@@ -1,17 +1,15 @@
-﻿using System;
+﻿using AutomationBase;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using SpotifyDownloader.Infrastructure;
+using SpotifyDownloader.Logic;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Net.NetworkInformation;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using AutomationBase;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Interactions;
 
 namespace SpotifyDownloader
 {
@@ -23,46 +21,137 @@ namespace SpotifyDownloader
 
         private static List<ChromeDriver> ParallelDrivers { get; set; }
 
+        private static Mode? ParseMode(string inputMode)
+        {
+            switch (inputMode.ToLowerInvariant())
+            {
+                case "onebyone":
+                    return Mode.OneByOne;
+                case "spotifyplaylist":
+                    return Mode.SpotifyPlaylist;
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// --Mode=OneByOne or --Mode=SpotifyPlaylist
+        /// --PlaylistLink=Link
+        /// --Output:Folder
+        /// --RunInParallel
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        private static dynamic GetParams(string[] args)
+        {
+            if (args.Length == 0)
+            {
+                return null;
+            }
+
+            var inputMode = args.FirstOrDefault(x => x.Contains("Mode"))?.Split("=").LastOrDefault()?.Trim();
+
+            var mode = ParseMode(inputMode);
+            if (!mode.HasValue)
+            {
+                throw new Exception($"No mode could be parsed for your input {inputMode}");
+            }
+
+            var defaultOutputPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+            var inputOutput = args.FirstOrDefault(x => x.Contains("Output"))?.Split("=").LastOrDefault()?.Trim();
+
+            var outputPathInformed = string.IsNullOrEmpty(inputOutput) || Directory.Exists(inputOutput);
+            if (!outputPathInformed)
+            {
+                Console.WriteLine($"Output parameter was not informed, do not exist or isn't acessible, files gonna be downloaded at '{defaultOutputPath}'");
+            }
+
+            var inputPlaylistLink = args.FirstOrDefault(x => x.Contains("PlaylistLink"))?.Split("=").LastOrDefault()?.Trim();
+            var playlistLink = mode.GetValueOrDefault() == Mode.SpotifyPlaylist
+                ? inputPlaylistLink
+                : null;
+
+            // Validating playlist link
+            if (mode == Mode.SpotifyPlaylist)
+            {
+                using var httpClient = new HttpClient();
+                try
+                {
+                    _ = httpClient.GetAsync(playlistLink).Result;
+                }
+                catch
+                {
+                    throw new Exception("The playlist link informed couldn't be acessed");
+                }
+            }
+
+            var runInParallel = !string.IsNullOrEmpty(args.FirstOrDefault(x => x.Contains("RunInParallel"))?.Split("=").LastOrDefault()?.Trim());
+
+            return new
+            {
+                Mode = mode,
+                PlaylistLink = playlistLink,
+                OutputDirectory = string.IsNullOrEmpty(inputOutput),
+                RunInParallel = runInParallel
+            };
+        }
+
+        private static string GetBaseFolderName(string sessionId)
+        {
+            return $"SongDownloader_Session_{sessionId}";
+        }
+
         public static void Main(string[] args)
         {
-            var sessionId = DateTime.Now.ToString("dd_MM_yyyy_HH_mm_ss");  
+            Session.Id = DateTime.Now.ToString("dd_MM_yyyy_HH_mm_ss");
+            Console.WriteLine($"Started at: {DateTime.Now:HH:mm:ss}\n" +
+                              $"Session Id: {Session.Id}\n");
+
             var stopWatch = new Stopwatch();
             stopWatch.Start();
 
-            Console.WriteLine($"Started at: {DateTime.Now:HH:mm:ss}\n" +
-                              $"Session Id: {sessionId}\n");
+            var parameters = GetParams(args);
+            if (parameters == null)
+            {
+                WizardModeRunner.RunInWizardMode();
+                return;
+            }
 
-            var indexOfL = args.ToList().IndexOf("-l");
-            var playlistLink = args[indexOfL + 1];
-            Console.WriteLine($"Got playlist link '{playlistLink}'\n");
 
-            var folderName = $"SpotifyDownloader_{sessionId}";
+            if (parameters.PlaylistLink != null)
+            {
+
+            }
+
+            Console.WriteLine($"Got playlist link '{parameters.PlaylistLink}'\n");
+
+            var folderName = GetBaseFolderName(Session.Id);
             var defaultDownloadLocation = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, folderName);
-            var indexOfO = args.ToList().IndexOf("-o");
+            
 
-            var outputDirectory = indexOfO != -1 ? Path.Combine(args[indexOfO + 1], folderName) : null;
-            Console.WriteLine(outputDirectory != null 
-                ? $"Got output directory '{outputDirectory}'\n"
-                : $"No output directory passed via -o param, files will be downloaded at '{DownloadDirectory}'\n");
+            Console.WriteLine(parameters.OutputDirectory != null 
+                ? $"Got output directory '{parameters.OutputDirectory}'\n"
+                : $"No output directory passed via -o param, files gonna be downloaded at '{DownloadDirectory}'\n");
 
             var indexOfP = args.ToList().IndexOf("-p");
             var runInParallel = indexOfP != -1;
             Console.WriteLine($"Application {(runInParallel ? "will" : "won't")} run in parallel {(runInParallel ? $"using {Environment.ProcessorCount} logical processors" : string.Empty)}\n");
 
-            DownloadDirectory = outputDirectory ?? defaultDownloadLocation;
+            DownloadDirectory = parameters.OutputDirectory ?? defaultDownloadLocation;
 
-            CheckUpdateChromeDriver();
+            ChromeDriverHandler.CheckUpdateChromeDriver();
 
-            Directory.CreateDirectory(DownloadDirectory);
+            IOHandler.CreateDirectory(DownloadDirectory);
+            IOHandler.SetDirectoryPermission(DownloadDirectory);
 
             Console.WriteLine("Instantiating driver\n");
-            Driver = GetDriver(DownloadDirectory);
+            Driver = ChromeDriverHandler.GetDriver(DownloadDirectory);
 
-            var songsNames = GetSongsNamesFromPlaylistLink(playlistLink);
+            var songsNames = GetSongsNamesFromPlaylistLink(parameters.PlaylistLink);
             RefineSongsNames(songsNames);
 
             DownloadSongs(songsNames, runInParallel);
-            RenameFiles();
+            IOHandler.RenameFilesRemovingString(DownloadDirectory, "my-free-mp3s.com");
 
             // Disposing all the used resources
             Driver.Dispose();
@@ -71,21 +160,6 @@ namespace SpotifyDownloader
 
             stopWatch.Stop();
             Console.WriteLine($"Total time: {stopWatch.Elapsed}");
-        }
-
-        private static void RenameFiles()
-        {
-            var files = Directory.GetFiles(DownloadDirectory);
-            foreach(var fileName in files)
-            {
-                File.Move(fileName, fileName.Replace(" my-free-mp3s.com ", string.Empty));
-
-                if (File.Exists(fileName))
-                {
-                    File.Delete(fileName);
-                }
-            };
-
         }
 
         private static void RefineSongsNames(IList<string> songsNames)
@@ -129,7 +203,7 @@ namespace SpotifyDownloader
                 
                 Parallel.ForEach(processingList, songNameList =>
                 {
-                    var driver = GetDriver(DownloadDirectory, false);
+                    var driver = ChromeDriverHandler.GetDriver(DownloadDirectory, true, false);
                     if (ParallelDrivers == null)
                     {
                         ParallelDrivers = new List<ChromeDriver>();
@@ -167,8 +241,6 @@ namespace SpotifyDownloader
 
             driver.WaitForPageToLoad();
 
-            //ChromeDriverHelper.WaitSpecificTime(TimeSpan.FromSeconds(4));
-
             driver.WaitForElementToBeDisplayed(By.Id("result"));
             var elResult = driver.FindElement(By.Id("result"));
 
@@ -180,7 +252,10 @@ namespace SpotifyDownloader
 
             if (elListItems.Count == 1 && (elListItems.FirstOrDefault()?.Text.ToLowerInvariant().Contains("your request was not found")).GetValueOrDefault())
             {
-                Console.WriteLine($"Song '{songName}' not found to download");
+                Console.WriteLine($"Song '{songName}' not found to download\n" +
+                                  "Will try downloading from youtube\n");
+
+                DownloadSongFromYoutube(driver, ref count, total, songName);
 
                 return;
             }
@@ -191,8 +266,7 @@ namespace SpotifyDownloader
                 var key = string.Join(" - ", item.FindElements(By.CssSelector("#navi")).Select(x => x.Text));
                 if (items.ContainsKey(key)) return;
 
-                var value = driver.FindElement(By.CssSelector("#result > div.list-group > li:nth-child(1) > a.name"))
-                    .GetAttribute("href");
+                var value = driver.FindElement(By.CssSelector("#result > div.list-group > li:nth-child(1) > a.name")).GetAttribute("href");
                 items.Add(key, value);
             });
 
@@ -202,36 +276,35 @@ namespace SpotifyDownloader
             Console.WriteLine($"Downloading song {count}/{total} '{songName}' ");
         }
 
-        private static void DownloadSongFromYoutube(string songName)
+        private static void DownloadSongFromYoutube(ChromeDriver driver, ref int count, int total, string songName)
         {
-            //https://www.yt-download.org/pt/@api/button/mp3/64FgiowQZh8
+            var url = $"https://www.youtube.com.br/results?search_query={GetYoutubeQueryString(songName)}";
+            driver.Navigate().GoToUrl(url);
+
+            driver.WaitForPageToLoad();
+            driver.WaitForElementToBeDisplayed(By.CssSelector("a#video-title.yt-simple-endpoint.style-scope.ytd-video-renderer"));
+
+            var contents = driver.FindElements(By.CssSelector("a#video-title.yt-simple-endpoint.style-scope.ytd-video-renderer"));
+
+            var link = contents.FirstOrDefault()?.GetAttribute("href");
+            var videoId = link?.Split("v=")?.LastOrDefault()?.Trim();
+
+            driver.Navigate().GoToUrl($"https://www.yt-download.org/pt/@api/button/mp3/{videoId}");
+            driver.WaitForPageToLoad();
+
+            count++;
+            Console.WriteLine($"Downloading song {count}/{total} '{songName}' from Youtube. This may delay the processing\n");
+
+            driver.WaitForElementToBeDisplayed(By.ClassName("download-result"), TimeSpan.FromMinutes(5));
+            var elDownload = driver.FindElementsByClassName("link").FirstOrDefault();
+
+            elDownload?.Click();
         }
 
         private static string GetYoutubeQueryString(string songName)
         {
             // .Net Core default URL enconding is already RFC2396
             return System.Web.HttpUtility.UrlEncode(songName);
-        }
-
-        private static string GetSongsYoutubeLinks(string songName)
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            var url = $"https://www.youtube.com.br/results?search_query={GetYoutubeQueryString(songName)}";
-            Driver.Navigate().GoToUrl(url);
-
-            Driver.WaitForPageToLoad();
-            Driver.WaitForElementToBeDisplayed(By.CssSelector("a#video-title.yt-simple-endpoint.style-scope.ytd-video-renderer"));
-
-            var contents = Driver.FindElements(By.CssSelector("a#video-title.yt-simple-endpoint.style-scope.ytd-video-renderer"));
-
-            var link = contents.FirstOrDefault()?.GetAttribute("href");
-
-            stopwatch.Stop();
-            Console.WriteLine($"Got link on Youtube\n");
-
-            return link;
         }
 
         private static IList<string> GetSongsNamesFromPlaylistLink(string playlistLink)
@@ -247,29 +320,12 @@ namespace SpotifyDownloader
                 var songName = row.FindElement(By.CssSelector("div.tracklist-name.ellipsis-one-line")).Text;
                 var artists = row.FindElement(By.CssSelector("span.TrackListRow__artists.ellipsis-one-line")).Text;
 
-                return $"{artists.Split(",").FirstOrDefault()?.Trim()} - {songName}";
+                return $"{artists.Split(",").FirstOrDefault()?.Trim()} - {songName.Trim()}";
             }).ToList();
 
             Console.WriteLine($"Got {songsNames.Count} songs names\n");
 
             return songsNames;
-        }
-
-        private static ChromeDriver GetDriver(string downloadDirectory, bool killOtherProcesses = true)
-        {
-            return ChromeDriverHelper.GetDriverBuilder()
-                .AllowRunningInsecureContent()
-                //.DisablePopupBlocking()
-                .Headless()
-                .SetDownloadPath(downloadDirectory)
-                .Build(killOtherProcesses);
-        }
-
-        private static void CheckUpdateChromeDriver()
-        {
-            Console.WriteLine($"Checking ChromeDriver files");
-            ChromeDriverHelper.CheckUpdateChromeDriver();
-            Console.WriteLine("ChromeDriver working\n");
         }
     }
 }
