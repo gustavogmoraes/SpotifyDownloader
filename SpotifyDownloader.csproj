@@ -8,22 +8,22 @@
 
   <ItemGroup>
     <Reference Include="AutomationBase">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\AutomationBase.dll</HintPath>
+      <HintPath>..\Dependencies\AutomationBase.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.SharpZipLib">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\ICSharpCode.SharpZipLib.dll</HintPath>
+      <HintPath>..\Dependencies\ICSharpCode.SharpZipLib.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\Dependencies\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="SeleniumExtras.WaitHelpers">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\SeleniumExtras.WaitHelpers.dll</HintPath>
+      <HintPath>..\Dependencies\SeleniumExtras.WaitHelpers.dll</HintPath>
     </Reference>
     <Reference Include="WebDriver">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\WebDriver.dll</HintPath>
+      <HintPath>..\Dependencies\WebDriver.dll</HintPath>
     </Reference>
     <Reference Include="WebDriver.Support">
-      <HintPath>D:\Backup Maquina Gustavo\Visual Studio 2010\Projects\LancamentoHoras - TestWebApi\AutomationBase\AutomationBase\bin\Release\netcoreapp2.2\WebDriver.Support.dll</HintPath>
+      <HintPath>..\Dependencies\WebDriver.Support.dll</HintPath>
     </Reference>
   </ItemGroup>
 
