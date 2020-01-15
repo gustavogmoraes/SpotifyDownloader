@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using SpotifyDownloader.Infrastructure;
 
 namespace SpotifyDownloader.Logic
 {
@@ -44,6 +47,40 @@ namespace SpotifyDownloader.Logic
                         }
 
                     case '2': // Download songs passing Spotify public playlist link
+                        Console.WriteLine(SpotifyPlaylistMenu);
+
+                        var menu2Input = Console.ReadLine();
+                        if (string.IsNullOrEmpty(menu2Input))
+                        {
+                            Console.WriteLine("Please type some search string\n");
+                            Console.ReadKey();
+                            Console.Clear();
+                            continue;
+                        }
+
+                        Console.WriteLine($"You typed '{menu2Input.Trim()}'\n" +
+                                          "Do you want to set output directory? If yes insert it, if don't just press enter");
+                        var playlistLink = menu2Input.Trim();
+
+                        var defaultOutput = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), Program.GetBaseFolderName(Session.Id));
+                        menu2Input = Console.ReadLine();
+                        var output = string.IsNullOrEmpty(menu2Input) 
+                            ? defaultOutput 
+                            : Path.Combine(menu2Input, Program.GetBaseFolderName(Session.Id));
+
+                        Console.WriteLine("Do you want to run in parallel?(S/N)\n");
+
+                        menu2Input = Console.ReadLine();
+                        var runInParallel = !string.IsNullOrEmpty(menu2Input) && menu2Input.Trim().ToLowerInvariant() != "n";
+
+                        Console.WriteLine("Starting");
+                        Thread.Sleep(TimeSpan.FromSeconds(2));
+                        Console.Clear();
+                        using (var musicDownloader = new MusicDownloader(output))
+                        {
+                            musicDownloader.DownloadSpotifyPlaylist(playlistLink, runInParallel);
+                        }
+
                         break;
                 }
             }
@@ -59,6 +96,9 @@ namespace SpotifyDownloader.Logic
             "Passing in the following format will get better matches at the search and probably bring more satisfying results\n" +
             "Format: <Artist name> - <Song name> <Remix or version tag>\n" +
             "Example: Post Malone - Congratulation\n";
+
+        private const string SpotifyPlaylistMenu =
+            "Please inform the playlist link\n";
 
         private static readonly char[] MenuOptions = { '1', '2' };
     }
