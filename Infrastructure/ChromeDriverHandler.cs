@@ -16,7 +16,7 @@ namespace SpotifyDownloader.Infrastructure
 
             if (headless)
             {
-                builder.Headless();
+                //builder.Headless();
             }
 
             return builder.Build(killOtherProcesses);

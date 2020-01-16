@@ -36,7 +36,7 @@ namespace SpotifyDownloader.Logic
             Console.WriteLine($"Application {(runInParallel ? "will" : "won't")} run in parallel {(runInParallel ? $"using {Environment.ProcessorCount} logical processors" : string.Empty)}\n");
 
             Console.WriteLine("Waiting for main driver\n");
-            while(MainDriver == null) { }
+            while(MainDriver == null) {  }
 
             var songsNames = GetSongsNamesFromPlaylistLink(playlistLink).ToList();
             RefineSongsNames(songsNames);
