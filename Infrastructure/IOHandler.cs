@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Text;
+using System.Threading.Tasks;
 using AutomationBase;
 
 namespace SpotifyDownloader.Infrastructure
@@ -47,6 +49,18 @@ namespace SpotifyDownloader.Infrastructure
             else if (new[] { OSPlatform.OSX, OSPlatform.Linux }.Contains(os))
             {
                 ShellHelper.Bash($"sudo chown {Environment.UserName} {downloadDirectory}");
+            }
+        }
+
+        public static void DownloadFileOnSpecificDirectory(string url, string path)
+        {
+            SetDirectoryPermission(path);
+
+            using (var httpClient = new HttpClient())
+            using (var stream = httpClient.GetStreamAsync(url).Result)
+            using (var outputStream = new FileStream(path, FileMode.Create))
+            {
+                stream.CopyToAsync(outputStream).Wait();
             }
         }
     }

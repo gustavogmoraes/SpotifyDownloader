@@ -100,6 +100,8 @@ namespace SpotifyDownloader.Logic
 
         private void DownloadSongFromMyFreeMp3(ChromeDriver driver, string songName, bool runInParallel, List<string> processed)
         {
+            const string DOWNLOAD_PREFIX = "https://music.mp3-download.best/";
+            
             driver.Navigate().GoToUrl("https://myfreemp3c.com/");
             driver.WaitForPageToLoad();
 
@@ -250,7 +252,7 @@ namespace SpotifyDownloader.Logic
                     songsNames[i] = $"{splitted[0]} - {splitted[1]}";
                 }
             }
-        }   
+        }  
 
         private string DownloadDirectory { get; set; }
 
