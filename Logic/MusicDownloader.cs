@@ -127,11 +127,11 @@ namespace SpotifyDownloader.Logic
             if (elListItems.Count == 1 && (elListItems.FirstOrDefault()?.Text.ToLowerInvariant().Contains("your request was not found")).GetValueOrDefault())
             {
                 tryYoutube = true;
-                
-                Console.WriteLine($"Song '{songName}' not found to download\n" +
-                                  "Will try downloading from youtube\n");
 
-                Task.Run(() => DownloadSongFromYoutube(driver, songName));
+                Console.WriteLine($"Song '{songName}' not found to download\n");
+                                  //"Will try downloading from youtube\n");
+
+                //Task.Run(() => DownloadSongFromYoutube(driver, songName));
 
                 if (runInParallel)
                 {
@@ -153,7 +153,7 @@ namespace SpotifyDownloader.Logic
 
             driver.Navigate().GoToUrl(items.FirstOrDefault().Value);
 
-            if (runInParallel && !tryYoutube)
+            if (runInParallel)
             {
                 processed.Remove(songName);
             }
